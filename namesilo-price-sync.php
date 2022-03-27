@@ -5,9 +5,11 @@ Script for synchronizing TLD prices with namesilo, adds information directly to 
 php namesilo-price-sync.php [-margin=0.00[%/p]] [-update=none/already-added/namesilo-only/all] [-make-default-registrar=false/true] [-round-to-next=0.00] [-template=.tld] [-exclude=.tld,...] [-include=.tld,...]
 
 Arguments:
--margin=0.0[%/p]
-Profit margin to add on each price, it can be a fixed amount or a percentage (by using p or % at the end of the number)
-Examples: 5.10, 3p, 22%
+-margin=0.0[%/p] or -margin=x+y
+Profit margin to add on each price, it can be:
+- fixed amount: 5.10
+- a percentage: 30p or 30%
+- fixed amount and a percentage: 5.10+30
 Default value is: 0.00
 *Cron treats percent signs in a special way, if used escape the percent sign or use p instead
 
@@ -78,7 +80,9 @@ foreach ($argv as $ar) {
 				
 				$margin = preg_replace('/(%|p)/i', '', $margin);
 			}
-		
+			else if (preg_match('/\+/i', $margin)) {
+				$marginType = 'both';
+			}
 		
 			$margin = (float)$margin;
 		}
@@ -1274,8 +1278,12 @@ foreach ($tldWorkList as $wTld) {
 			$newPrice += $margin;
 		} elseif ($marginType == 'percentage') {
 			$newPrice += $newPrice * ($margin/100);
-		}
-		
+		} elseif ($marginType == 'both') {
+			$margin_both = explode('+', $margin);
+		   	$newPrice += $margin_both[0]; //Apply Fixed Amount
+			$newPrice += $newPrice * ($margin_both[1]/100); //Apply Percentage
+	   	}
+
 		//Round to next decimal
 		if (!is_null($roundToNext)) {
 			$newPrice = roundToNextDecimal($newPrice, $roundToNext);
