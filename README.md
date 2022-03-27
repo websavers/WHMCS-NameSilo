@@ -1,3 +1,8 @@
+# Need More Features?
+Check out our advanced drop-in replacement module here: https://marketplace.whmcs.com/product/4229-namesilo-registrar-advanced
+
+EVERYTHING BELOW IS STOCK INFORMATION FROM UPSTREAM
+
 Latest updates include: registry premium domain name pricing and TLD price sync (sync ALL TLD price with one click inside WHMCS)
 
 Features in next release in September: Domain sync and Transfer sync
