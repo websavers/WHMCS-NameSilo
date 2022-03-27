@@ -1,6 +1,8 @@
 # Need More Features?
 Check out our advanced drop-in replacement module here: https://marketplace.whmcs.com/product/4229-namesilo-registrar-advanced
 
+It includes more advanced functionality like SRV record management, end-to-end client area domain transfer management, admins can configure name servers to auto-set upon transfer completion, and more.
+
 EVERYTHING BELOW IS STOCK INFORMATION FROM UPSTREAM
 
 Latest updates include: registry premium domain name pricing and TLD price sync (sync ALL TLD price with one click inside WHMCS)
