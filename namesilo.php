@@ -233,12 +233,7 @@ function namesilo_transactionCall($callType, $call, $params)
                 break;
             case "domainPricing":
             if ($code == "300") {
-                $response["prices"] = [];
-                foreach ($xml->reply->children() as $tld) {
-                    if ($tld->count() === 3) {
-                        $response["prices"][] = array("tld" => (string)$tld->getName(), "registration" => (string)$tld->registration, "renew" => (string)$tld->renew, "transfer" => (string)$tld->transfer);
-                    }
-                }
+                $response['tlds'] = $xml->reply->tlds;
                 break;
             }
             
@@ -1622,20 +1617,34 @@ function namesilo_GetTldPricing($params) {
     $results = new ResultsList();
     
     # Transaction Call
-    $values = namesilo_transactionCall("domainPricing", $apiServerUrl . "/api/getPrices?version=1&type=xml&key=$apiKey", $params);
+    $values = namesilo_transactionCall("domainPricing", $apiServerUrl . "/api/getTldPricing?version=1&type=xml&key=$apiKey", $params);
     
     //To-Do: add grace and redemtion fee days (some TLDs don't have redemption)
     //To-Do: add redemption fee price
     
-    if (isset($values["prices"])) { //If prices are returned transform them to a result list
-        foreach ($values["prices"] as $price) {
-            $item = new ImportItem();
-            $item->setExtension('.' . $price["tld"]);
-            $item->setCurrency('USD');
-            $item->setRegisterPrice((float)$price["registration"]);
-            $item->setRenewPrice((float)$price["renew"]);
-            $item->setTransferPrice((float)$price["transfer"]);
-            
+    if (isset($values["tlds"])) { //If prices are returned transform them to a result list
+        foreach ($values["tlds"] as $tld) {
+
+            //If registration < renewal price, assume promotion that only allows 1 year reg
+            if ( (float)$tld->registrationPrice < (float)$tld->renewalPrice ){
+                $maxYears = 1;
+            }
+            else{
+                $maxYears = (int)$tld->maxPeriod;
+            }
+
+            $item = (new ImportItem)
+                ->setExtension('.' . $tld["tld"])
+                ->setMinYears((int)$tld->minPeriod)
+                ->setMaxYears($maxYears)
+                ->setRegisterPrice((float)$tld->registrationPrice)
+                ->setRenewPrice((float)$tld->renewalPrice)
+                ->setTransferPrice((float)$tld->transferPrice)
+                ->setCurrency((string)$tld->currencyCode)
+                //->setRedemptionFeeDays($tld->redemptionDays) //Not provided through API
+                //->setRedemptionFeePrice(75) //Not provided through API but seems to be consistently $75 USD
+                ->setEppRequired(false);
+
             $results->append($item);
         }
         
