@@ -1,7 +1,10 @@
-# Need More Features?
+# Want More Features?
 Check out our advanced drop-in replacement module here: https://marketplace.whmcs.com/product/4229-namesilo-registrar-advanced
 
 It includes more advanced functionality like SRV record management, end-to-end client area domain transfer management, admins can configure name servers to auto-set upon transfer completion, and more.
+
+# Maintenance Plan
+Our goal is to maintain this free NameSilo module by fixing bugs and ensuring compatibility with WHMCS releases. We welcome bug reports via GitHub Issues. Feature requests may be considered where they do not conflict with or overlap with features in our advanced module.
 
 EVERYTHING BELOW IS STOCK INFORMATION FROM UPSTREAM
 
