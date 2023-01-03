@@ -158,18 +158,18 @@ function namesilo_transactionCall($callType, $call, $params)
             case "getContactDetails":
 
                 if ($code == '300') {
-                    $response['firstname'] = $xml->reply->contact->first_name;
-                    $response['lastname'] = $xml->reply->contact->last_name;
-                    $response['company'] = $xml->reply->contact->company;
-                    $response['address'] = $xml->reply->contact->address;
-                    $response['address2'] = $xml->reply->contact->address2;
-                    $response['city'] = $xml->reply->contact->city;
-                    $response['state'] = $xml->reply->contact->state;
-                    $response['postalcode'] = $xml->reply->contact->zip;
-                    $response['country'] = $xml->reply->contact->country;
-                    $response['email'] = $xml->reply->contact->email;
-                    $response['phone'] = $xml->reply->contact->phone;
-                    $response['fax'] = $xml->reply->contact->fax;
+                    $response['firstname'] = (string) $xml->reply->contact->first_name;
+                    $response['lastname'] = (string) $xml->reply->contact->last_name;
+                    $response['company'] = (string) $xml->reply->contact->company;
+                    $response['address'] = (string) $xml->reply->contact->address;
+                    $response['address2'] = (string) $xml->reply->contact->address2;
+                    $response['city'] = (string) $xml->reply->contact->city;
+                    $response['state'] = (string) $xml->reply->contact->state;
+                    $response['postalcode'] = (string) $xml->reply->contact->zip;
+                    $response['country'] = (string) $xml->reply->contact->country;
+                    $response['email'] = (string) $xml->reply->contact->email;
+                    $response['phone'] = (string) $xml->reply->contact->phone;
+                    $response['fax'] = (string) $xml->reply->contact->fax;
                     break;
                 }
 
