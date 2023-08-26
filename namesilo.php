@@ -595,19 +595,18 @@ function namesilo_SaveDNS($params)
     $api_dns_calls = array();
 
     foreach ($params["dnsrecords"] as $key => $values) {
+        $hostname = urlencode(trim($values["hostname"]));
+        $type = $values["type"];
+        $address = urlencode(trim($values["address"]));
+        $priority = urlencode(trim($values["priority"]));
 
         # Check for forwarding and handle differently if it is a forward
         if (($values['type'] == 'URL' || $values['type'] == 'FRAME') && ($values['hostname'] == 'http' || $values['hostname'] == 'https') && @$values['address']) {
 
             $forward_method = ($values['type'] == 'URL' ? '301' : 'cloaked');
-            $apicall = "/api/domainForward?version=1&type=xml&key=$apiKey&domain=$sld.$tld&protocol={$values['hostname']}&address={$values['address']}&method=$forward_method";
+            $apicall = "/api/domainForward?version=1&type=xml&key=$apiKey&domain=$sld.$tld&protocol={$hostname}&address={$address}&method=$forward_method";
 
         } else {
-
-            $hostname = $values["hostname"];
-            $type = $values["type"];
-            $address = $values["address"];
-            $priority = $values["priority"];
             # Check to make sure there is something to add
             //if (empty($hostname) || empty($address)) { continue; }
             if (empty($address)) {
@@ -729,20 +728,8 @@ function namesilo_RegisterDomain($params)
     
     # Delete default DNS records if the domain uses namesilo name servers
     if ($deleteDefaultDns) {
-        //Use API to get name servers
-        //Default name servers are used when the API call doesn't include them, when the name servers have errors or when requested
-        $domainNameServers = namesilo_transactionCall("getNameServers", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
-        $namesiloNameServers = ['ns1.dnsowl.com', 'ns2.dnsowl.com', 'ns3.dnsowl.com'. 'premium-ns1.dnsowl.com', 'premium-ns2.dnsowl.com', 'premium-ns3.dnsowl.com'];
-        
-        foreach ($domainNameServers as $nsKey => $nsValue) {
-            if (in_array(strtolower($nsValue), $namesiloNameServers)) {
-                //If a name server matches the defaults, delete (default) DNS records
-                namesilo__deleteDnsRecords($params);
-                break;
-            }
-        }
-    }
-    
+        namesilo__deleteDnsRecords($params);
+    }    
     if (isset($values['error'])) {
         if ($values['error'] == 'Invalid number of years, or no years provided.' && $regperiod > 0 && $regperiod <= 10) {
             $values['error'] = 'Invalid number of years, or no years provided. If a valid number was entered the domain does not support multiple year registrations at the moment, to add extra years please regsiter the domain for one year then  use the renewal process to add extra years.';
@@ -1622,29 +1609,18 @@ function namesilo_GetTldPricing($params) {
     //To-Do: add grace and redemtion fee days (some TLDs don't have redemption)
     //To-Do: add redemption fee price
     
-    if (isset($values["tlds"])) { //If prices are returned transform them to a result list
-        foreach ($values["tlds"] as $tld) {
-
-            //If registration < renewal price, assume promotion that only allows 1 year reg
-            if ( (float)$tld->registrationPrice < (float)$tld->renewalPrice ){
-                $maxYears = 1;
-            }
-            else{
-                $maxYears = (int)$tld->maxPeriod;
-            }
-
-            $item = (new ImportItem)
-                ->setExtension('.' . $tld["tld"])
-                ->setMinYears((int)$tld->minPeriod)
-                ->setMaxYears($maxYears)
-                ->setRegisterPrice((float)$tld->registrationPrice)
-                ->setRenewPrice((float)$tld->renewalPrice)
-                ->setTransferPrice((float)$tld->transferPrice)
-                ->setCurrency((string)$tld->currencyCode)
-                //->setRedemptionFeeDays($tld->redemptionDays) //Not provided through API
-                //->setRedemptionFeePrice(75) //Not provided through API but seems to be consistently $75 USD
-                ->setEppRequired(false);
-
+    if (isset($values["prices"])) { //If prices are returned transform them to a result list
+        foreach ($values["prices"] as $price) {
+            $item = new ImportItem();
+            $item->setExtension('.' . $price["tld"]);
+            $item->setCurrency('USD');
+            $registerPrice = (float)str_replace(',', '', mb_convert_encoding($price["registration"], 'UTF-8'));
+            $renewPrice = (float)str_replace(',', '', mb_convert_encoding($price["renew"], 'UTF-8'));
+            $transferPrice = (float)str_replace(',', '', mb_convert_encoding($price["transfer"], 'UTF-8'));
+            $item->setRegisterPrice((float)$price["registration"]);
+            $item->setRenewPrice((float)$price["renew"]);
+            $item->setTransferPrice((float)$price["transfer"]);
+            
             $results->append($item);
         }
         
