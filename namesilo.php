@@ -233,7 +233,12 @@ function namesilo_transactionCall($callType, $call, $params)
                 break;
             case "domainPricing":
             if ($code == "300") {
-                $response['tlds'] = $xml->reply->tlds;
+                $response["prices"] = [];
+                foreach ($xml->reply->children() as $tld) {
+                    if ($tld->count() === 3) {
+                        $response["prices"][] = array("tld" => (string)$tld->getName(), "registration" => (string)$tld->registration, "renew" => (string)$tld->renew, "transfer" => (string)$tld->transfer);
+                    }
+                }
                 break;
             }
             
@@ -1604,8 +1609,8 @@ function namesilo_GetTldPricing($params) {
     $results = new ResultsList();
     
     # Transaction Call
-    $values = namesilo_transactionCall("domainPricing", $apiServerUrl . "/api/getTldPricing?version=1&type=xml&key=$apiKey", $params);
-    
+    $values = namesilo_transactionCall("domainPricing", $apiServerUrl . "/api/getPrices?version=1&type=xml&key=$apiKey", $params);
+
     //To-Do: add grace and redemtion fee days (some TLDs don't have redemption)
     //To-Do: add redemption fee price
     
