@@ -312,7 +312,12 @@ Class NamesiloPrices {
 			$result["prices"] = [];
 			foreach ($xml->reply->children() as $tld) {
 				if ($tld->count() === 3) {
-					$result["prices"][] = array("tld" => (string)$tld->getName(), "register" => str_replace(',', '', (string)$tld->registration), "renew" => str_replace(',', '', (string)$tld->renew), "transfer" => str_replace(',', '', (string)$tld->transfer));
+                    $result["prices"][] = array(
+                        "tld"           => (string)$tld->getName(),
+                        "registration"  => number_format((float)str_replace(',', '', $tld->registration), 2, '.', ''),
+                        "renew"         => number_format((float)str_replace(',', '', $tld->renew), 2, '.', ''),
+                        "transfer"      => number_format((float)str_replace(',', '', $tld->transfer), 2, '.', ''),
+                    );
 				}
 			}
 		}
@@ -1199,9 +1204,8 @@ for ($i = count($tldWorkList) - 1; $i >= 0; $i--) {
 /*****************************************/
 
 # Start cron report
-$cronreport .= "NameSilo Price Sync Report<br>
----------------------------------------------------<br>
-";
+$cronreport = '';
+$updatedTlds = [];
 
 # Validate TLD work list
 for ($i = count($tldWorkList) - 1; $i >= 0; $i--) {
@@ -1266,7 +1270,7 @@ foreach ($tldWorkList as $wTld) {
 	$newPrices = [];
 	foreach ($priceOperationList as $pOperation) {
 		//Get price from namesilo using the TLD from the worklist and the operation from the operation list
-		$newPrice = $nsPriceList->getPrice($wTld, $pOperation);
+		$newPrice = $nsPriceList->getPrice($wTld, ($pOperation == 'register') ? 'registration' : $pOperation);
 		
 		//Skip operation if namesilo doesn't have a price
 		if (is_null($newPrice)) {
@@ -1307,6 +1311,10 @@ foreach ($tldWorkList as $wTld) {
 				//If new price is different from old price update database
 				if ($oldPrice['price'] != $nPriceValue) {
 					$whmcsPriceList->updateEntry(['price' => $nPriceValue], ['domainId' => $tldId, 'currency' => $currencyId, 'operation' => $nPriceKey]);
+					$updatedTlds[] = [
+						'tld' => $wTld,
+						'price' => $nPriceValue
+					];
 				}
 				
 				break;
@@ -1320,17 +1328,32 @@ foreach ($tldWorkList as $wTld) {
 	}
 }
 
+$cronreport_header = "NameSilo Price Sync Report<br>
+---------------------------------------------------<br>";
+
+if (!$cronreport) {
+	if (!count($updatedTlds)) {
+		$cronreport = "Nothing to sync<br>";
+	} else {
+		foreach ($updatedTlds as $updatedTld) {
+			$cronreport .= $updatedTld['tld'] . ' : $ '. $updatedTld['price'] . '<br>';
+		}
+	}
+}
+
+$cronreport_result = $cronreport_header . $cronreport;
+
 /*****************************************/
 /* Echo to the screen 					 */
 /*****************************************/
-echo $cronreport;
+echo $cronreport_result;
 
 /*****************************************/
 /* Log System Activity					 */
 /*****************************************/
-logactivity('NameSilo Domain Sync Run');
+logactivity('NameSilo Price Sync Run');
 
 /*****************************************/
 /* Send Cron Report						 */
 /*****************************************/
-sendadminnotification('system', 'NameSilo Domain Syncronization Report', $cronreport);
+sendadminnotification('system', 'NameSilo Price Syncronization Report', $cronreport_result);

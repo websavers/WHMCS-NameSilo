@@ -236,7 +236,12 @@ function namesilo_transactionCall($callType, $call, $params)
                 $response["prices"] = [];
                 foreach ($xml->reply->children() as $tld) {
                     if ($tld->count() === 3) {
-                        $response["prices"][] = array("tld" => (string)$tld->getName(), "registration" => (string)$tld->registration, "renew" => (string)$tld->renew, "transfer" => (string)$tld->transfer);
+                        $response["prices"][] = array(
+                            "tld"           => (string)$tld->getName(),
+                            "registration"  => number_format((float)str_replace(',', '', $tld->registration), 2, '.', ''),
+                            "renew"         => number_format((float)str_replace(',', '', $tld->renew), 2, '.', ''),
+                            "transfer"      => number_format((float)str_replace(',', '', $tld->transfer), 2, '.', ''),
+                        );
                     }
                 }
                 break;
@@ -735,8 +740,20 @@ function namesilo_RegisterDomain($params)
     
     # Delete default DNS records if the domain uses namesilo name servers
     if ($deleteDefaultDns) {
-        namesilo__deleteDnsRecords($params);
-    }    
+        //Use API to get name servers
+        //Default name servers are used when the API call doesn't include them, when the name servers have errors or when requested
+        $domainNameServers = namesilo_transactionCall("getNameServers", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
+        $namesiloNameServers = ['ns1.dnsowl.com', 'ns2.dnsowl.com', 'ns3.dnsowl.com'. 'premium-ns1.dnsowl.com', 'premium-ns2.dnsowl.com', 'premium-ns3.dnsowl.com'];
+        
+        foreach ($domainNameServers as $nsKey => $nsValue) {
+            if (in_array(strtolower($nsValue), $namesiloNameServers)) {
+                //If a name server matches the defaults, delete (default) DNS records
+                namesilo__deleteDnsRecords($params);
+                break;
+            }
+        }
+    }
+    
     if (isset($values['error'])) {
         if ($values['error'] == 'Invalid number of years, or no years provided.' && $regperiod > 0 && $regperiod <= 10) {
             $values['error'] = 'Invalid number of years, or no years provided. If a valid number was entered the domain does not support multiple year registrations at the moment, to add extra years please regsiter the domain for one year then  use the renewal process to add extra years.';
@@ -950,50 +967,28 @@ function namesilo_GetContactDetails($params)
     $tld = urlencode($params["tld"]);
     $sld = urlencode($params["sld"]);
     # Transaction Call
-    $contactid = namesilo_transactionCall("getContactID", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
-    $details_registrant = namesilo_transactionCall("getContactDetails", $apiServerUrl . "/api/contactList?version=1&type=xml&key=$apiKey&contact_id={$contactid['registrant']}", $params);
-    $details_admin = namesilo_transactionCall("getContactDetails", $apiServerUrl . "/api/contactList?version=1&type=xml&key=$apiKey&contact_id={$contactid['admin']}", $params);
-    $details_tech = namesilo_transactionCall("getContactDetails", $apiServerUrl . "/api/contactList?version=1&type=xml&key=$apiKey&contact_id={$contactid['tech']}", $params);
-    # Data should be returned in an array as follows
-    $values["Registrant"]["First Name"] = $details_registrant['firstname'];
-    $values["Registrant"]["Last Name"] = $details_registrant['lastname'];
-    $values["Registrant"]["Company"] = $details_registrant['company'];
-    $values["Registrant"]["Address"] = $details_registrant['address'];
-    $values["Registrant"]["Address 2"] = $details_registrant['address2'];
-    $values["Registrant"]["City"] = $details_registrant['city'];
-    $values["Registrant"]["State"] = $details_registrant['state'];
-    $values["Registrant"]["Postal Code"] = $details_registrant['postalcode'];
-    $values["Registrant"]["Country"] = $details_registrant['country'];
-    $values["Registrant"]["Email"] = $details_registrant['email'];
-    $values["Registrant"]["Phone"] = $details_registrant['phone'];
-    $values["Registrant"]["Fax"] = $details_registrant['fax'];
+    $contactId = namesilo_transactionCall("getContactID", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
 
-    $values["Admin"]["First Name"] = $details_admin['firstname'];
-    $values["Admin"]["Last Name"] = $details_admin['lastname'];
-    $values["Admin"]["Company"] = $details_admin['company'];
-    $values["Admin"]["Address"] = $details_admin['address'];
-    $values["Admin"]["Address 2"] = $details_admin['address2'];
-    $values["Admin"]["City"] = $details_admin['city'];
-    $values["Admin"]["State"] = $details_admin['state'];
-    $values["Admin"]["Postal Code"] = $details_admin['postalcode'];
-    $values["Admin"]["Country"] = $details_admin['country'];
-    $values["Admin"]["Email"] = $details_admin['email'];
-    $values["Admin"]["Phone"] = $details_admin['phone'];
-    $values["Admin"]["Fax"] = $details_admin['fax'];
+    $roles = ['Registrant', 'Admin', 'Tech'];
+    $values = [];
 
-    $values["Tech"]["First Name"] = $details_tech['firstname'];
-    $values["Tech"]["Last Name"] = $details_tech['lastname'];
-    $values["Tech"]["Company"] = $details_tech['company'];
-    $values["Tech"]["Address"] = $details_tech['address'];
-    $values["Tech"]["Address 2"] = $details_tech['address2'];
-    $values["Tech"]["City"] = $details_tech['city'];
-    $values["Tech"]["State"] = $details_tech['state'];
-    $values["Tech"]["Postal Code"] = $details_tech['postalcode'];
-    $values["Tech"]["Country"] = $details_tech['country'];
-    $values["Tech"]["Email"] = $details_tech['email'];
-    $values["Tech"]["Phone"] = $details_tech['phone'];
-    $values["Tech"]["Fax"] = $details_tech['fax'];
-    # Return Results
+    foreach ($roles as $role) {
+        $details = namesilo_transactionCall("getContactDetails", "$apiServerUrl/api/contactList?version=1&type=xml&key=$apiKey&contact_id={$contactId[\strtolower($role)]}", $params);
+
+        $values[$role]["First Name"] = (string)$details['firstname'];
+        $values[$role]["Last Name"] = (string)$details['lastname'];
+        $values[$role]["Company"] = (string)$details['company'];
+        $values[$role]["Address"] = (string)$details['address'];
+        $values[$role]["Address 2"] = (string)$details['address2'];
+        $values[$role]["City"] = (string) $details['city'];
+        $values[$role]["State"] = (string)$details['state'];
+        $values[$role]["Postal Code"] = (string)$details['postalcode'];
+        $values[$role]["Country"] = (string)$details['country'];
+        $values[$role]["Email"] = (string)$details['email'];
+        $values[$role]["Phone"] = (string)$details['phone'];
+        $values[$role]["Fax"] = (string)$details['fax'];
+    }
+
     return $values;
 }
 
@@ -1434,23 +1429,34 @@ function namesilo_TransferSync($params){
         }
 
         $status = (string)$result->status;
-        if ($status === 'Transfer Completed'){
-            return array(
-                'completed' => true, // Return as true upon successful completion of the transfer
-                'expirydate' => (string)$result->expiration, // The expiry date of the domain    
-            );
+        if ($status === 'Transfer Completed') {
+
+            /** @var SimpleXMLElement $result */
+            $domainInfoResult = namesilo_transactionCall('domainSync', $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$domainName", $params);
+
+            $code = (int)$domainInfoResult->code;
+            if ($code !== 300) {
+                return ['error' => 'ERROR: ' . $domainName . ' - Code:' . $code . ' Domain Info Detail: ' . (string)$domainInfoResult->detail];
+            }
+
+            $status = (string)$domainInfoResult->status;
+            if ($status === 'Active') {
+                return array(
+                    'completed' => true, // Return as true upon successful completion of the transfer
+                    'expirydate' => (string)$result->expiration, // The expiry date of the domain
+                );
+            }
         } else if (in_array($status, $transfer_failed_statuses)){
             return array(
                 'failed' => true,
                 'reason' => $status
             );
-        } else {
-            return array(
-                'completed' => false,
-                'failed' => false
-            );
         }
 
+        return array(
+            'completed' => false,
+            'failed' => false
+        );
     } catch (\Throwable $e) {
         return ['error' => 'ERROR: ' . $domainName . ' - ' . $e->getMessage()];
     }
@@ -1524,6 +1530,7 @@ function namesilo_CheckAvailability ($params) {
                 $sDomain["searchResult"] = $sResult;
             }
         }
+        unset($sDomain);
     } else {
         //logActivity($values["error"]);
         throw new Exception($values["error"]);
@@ -1592,6 +1599,7 @@ function namesilo_GetDomainSuggestions($params) {
                 }
             }
         }
+        unset($sDomain);
     } else {
         //logActivity($values["error"]);
         throw new Exception($values["error"]);
@@ -1621,9 +1629,6 @@ function namesilo_GetTldPricing($params) {
             $item = new ImportItem();
             $item->setExtension('.' . $price["tld"]);
             $item->setCurrency('USD');
-            $registerPrice = (float)str_replace(',', '', mb_convert_encoding($price["registration"], 'UTF-8'));
-            $renewPrice = (float)str_replace(',', '', mb_convert_encoding($price["renew"], 'UTF-8'));
-            $transferPrice = (float)str_replace(',', '', mb_convert_encoding($price["transfer"], 'UTF-8'));
             $item->setRegisterPrice((float)$price["registration"]);
             $item->setRenewPrice((float)$price["renew"]);
             $item->setTransferPrice((float)$price["transfer"]);
